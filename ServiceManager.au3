@@ -511,21 +511,34 @@ EndFunc
 ;===============================================================================
 ; Autostart on ServiceManager launch (bitmask-based: 1=LlamaCPP, 2=AgentGateway, 4=MCPJungle)
 ;===============================================================================
-Global $g_sAutoStartAllFile = @ScriptDir & "\autostart_all.dat"
-Global $g_iAutoStartAllMask = 0
+Global $g_sAutoStartAllDir = EnvGet("APPDATA") & "\Konnek\servicemanager"
+Global $g_sAutoStartAllFile = $g_sAutoStartAllDir & "\autostart_all.dat"
+Global $g_iAutoStartAllMask = 7 ; Default: All (1+2+4)
 
 Func _AutoStartAll_Load()
-    If Not FileExists($g_sAutoStartAllFile) Then Return
+    DirCreate($g_sAutoStartAllDir)
+    If Not FileExists($g_sAutoStartAllFile) Then
+        ; Default to All (7) if no file exists
+        $g_iAutoStartAllMask = 7
+        _AutoStartAll_Save(7)
+        Return
+    EndIf
     Local $h = FileOpen($g_sAutoStartAllFile, $FO_READ)
     If $h = -1 Then Return
     Local $s = FileReadLine($h)
     FileClose($h)
     $s = StringStripWS($s, $STR_STRIPALL)
-    If $s <> "" Then $g_iAutoStartAllMask = Int($s)
+    If $s <> "" Then
+        $g_iAutoStartAllMask = Int($s)
+    Else
+        $g_iAutoStartAllMask = 7
+        _AutoStartAll_Save(7)
+    EndIf
 EndFunc
 
 Func _AutoStartAll_Save($iMask)
     $g_iAutoStartAllMask = $iMask
+    DirCreate($g_sAutoStartAllDir)
     Local $h = FileOpen($g_sAutoStartAllFile, $FO_OVERWRITE)
     If $h = -1 Then Return
     FileWriteLine($h, $iMask)
