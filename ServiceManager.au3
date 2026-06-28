@@ -19,6 +19,9 @@ Opt("TrayMenuMode", 3)
 ; Enable tray event mode for TrayItemSetOnEvent handlers
 Opt("TrayOnEventMode", 1)
 
+; Enable GUI event mode for GUICtrlSetOnEvent handlers
+Opt("GUIOnEventMode", 1)
+
 ;===============================================================================
 ; Constants and configuration
 ;===============================================================================
