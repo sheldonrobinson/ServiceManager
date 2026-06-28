@@ -1,0 +1,50 @@
+name: Build Service Manager
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ServiceManager.exe
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup AutoIt
+      uses: dannyhawkins/autoit-github-action@v1
+      with:
+        version: '3.3.16.1'
+
+    - name: Build ServiceManager.exe
+      run: |
+        cd ServiceManager
+        Aut2exe.exe /in ServiceManager.au3 /out ServiceManager.exe /x64
+
+    - name: Verify build
+      run: |
+        ls -la ServiceManager/ServiceManager.exe
+
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ServiceManager/ServiceManager.exe
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ServiceManager
+        path: ServiceManager/ServiceManager.exe
+        retention-days: 7
