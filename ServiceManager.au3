@@ -16,6 +16,9 @@
 ; Disable default "Script Paused" and "Exit" tray items
 Opt("TrayMenuMode", 3)
 
+; Enable tray event mode for TrayItemSetOnEvent handlers
+Opt("TrayOnEventMode", 1)
+
 ;===============================================================================
 ; Constants and configuration
 ;===============================================================================
