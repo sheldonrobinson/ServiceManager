@@ -21,17 +21,20 @@ Opt("MustDeclareVars", 1)
 ;===============================================================================
 Global Const $APP_COUNT = 3
 
-Global $g_aApps[$APP_COUNT][7] = [ _
+Global $g_aApps[$APP_COUNT][8] = [ _
     [ "LlaMA.C++ HTTP Server", _
       @LocalAppDataDir & "\Programs\Konnek\llamacpp\llama-server.exe", _
+      "", _
       "http://localhost:11434/", "11434", _
       "LlamaCppHttpServer", "LlamaCppHttpServer_Task", "LlamaCppHttpServer.lnk" ], _
     [ "AgentGateway", _
       @LocalAppDataDir & "\Programs\Konnek\agentgateway\agentgateway.exe", _
+      "", _
       "http://localhost:15000/ui", "15000", _
       "AgentGateway", "AgentGateway_Task", "AgentGateway.lnk" ], _
     [ "MCPJungle", _
       @LocalAppDataDir & "\Programs\Konnek\mcpjungle\mcpjungle.exe", _
+      "start --port 8080 --sqlite-db-path " & @AppDataDir & "\Konnek\mcpjungle\mcpjungle.db", _
       "http://localhost:8080/", "8080", _
       "MCPJungle", "MCPJungle_Task", "MCPJungle.lnk" ] _
 ]
@@ -270,12 +273,15 @@ Func _StartApp($i)
         Return False
     EndIf
     Local $sExe = $g_aApps[$i][1]
+    Local $sArgs = $g_aApps[$i][2]
     If Not FileExists($sExe) Then
         MsgBox($MB_ICONERROR, "Service Manager", "Executable not found:" & @CRLF & $sExe)
         Return False
     EndIf
     Local $sDir = @ScriptDir
-    Local $pid = Run('"' & $sExe & '"', $sDir, @SW_HIDE)
+    Local $sCmdLine = '"' & $sExe & '"'
+    If $sArgs <> "" Then $sCmdLine &= " " & $sArgs
+    Local $pid = Run($sCmdLine, $sDir, @SW_HIDE)
     If $pid = 0 Then
         MsgBox($MB_ICONERROR, "Service Manager", "Failed to start " & $g_aApps[$i][0])
         Return False
