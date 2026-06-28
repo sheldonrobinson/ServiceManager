@@ -110,14 +110,14 @@ EndFunc
 ; Get install path from registry with fallback
 ;===============================================================================
 Func _GetInstallPath($sRegKeyHKLM, $sRegKeyHKCU, $sFallbackPath)
-    ; Try HKLM first
-    Local $sPath = RegRead("HKEY_LOCAL_MACHINE\" & $sRegKeyHKLM, "InstallPath")
+    ; Try HKCU first (user-specific)
+    Local $sPath = RegRead("HKEY_CURRENT_USER\" & $sRegKeyHKCU, "InstallPath")
     If Not @error And $sPath <> "" And FileExists($sPath) Then
         Return $sPath
     EndIf
 
-    ; Try HKCU
-    $sPath = RegRead("HKEY_CURRENT_USER\" & $sRegKeyHKCU, "InstallPath")
+    ; Try HKLM (machine-wide)
+    $sPath = RegRead("HKEY_LOCAL_MACHINE\" & $sRegKeyHKLM, "InstallPath")
     If Not @error And $sPath <> "" And FileExists($sPath) Then
         Return $sPath
     EndIf
