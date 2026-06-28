@@ -312,7 +312,7 @@ Func _OpenUI($i)
         MsgBox($MB_ICONWARNING, "Service Manager", $g_aApps[$i][0] & " is not running.")
         Return
     EndIf
-    ShellExecute($g_aApps[$i][2])
+    ShellExecute($g_aApps[$i][3])
 EndFunc
 
 ;===============================================================================
