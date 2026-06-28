@@ -1,5 +1,5 @@
 ;===============================================================================
-; Service Manager (AutoIt) - Compile-safe final version
+; Service Manager (AutoIt) - Hybrid elevation: user-mode default, elevate for Service/Task
 ;===============================================================================
 
 ;--- Standard includes ---
@@ -11,8 +11,7 @@
 #include <ListViewConstants.au3>
 #include <File.au3>
 #include <GuiListView.au3>
-
-#RequireAdmin
+#include <AutoItConstants.au3>
 
 ; Disable default "Script Paused" and "Exit" tray items
 Opt("TrayMenuMode", 3)
@@ -75,6 +74,11 @@ Global $g_hMI_Exit
 Global $g_hWndAdv = -1
 Global $g_hLV = -1
 Global $g_bAdvOpen = False
+
+; Elevation command line constants
+Global Const $CMD_ELEVATE_SERVICE = "/elevate_service"
+Global Const $CMD_ELEVATE_TASK    = "/elevate_task"
+Global Const $CMD_ELEVATE_REMOVE  = "/elevate_remove"
 
 ;===============================================================================
 ; PID persistence
@@ -140,32 +144,57 @@ Func _Auto_Save($iMode, $iApp)
     FileClose($h)
 EndFunc
 
-Func _Auto_RemoveAll($iExceptApp = -1)
-    For $i = 0 To $APP_COUNT - 1
-        If $i <> $iExceptApp Then
-            RunWait(@ComSpec & ' /c sc.exe stop "' & $g_aApps[$i][4] & '"', "", @SW_HIDE)
-            RunWait(@ComSpec & ' /c sc.exe delete "' & $g_aApps[$i][4] & '"', "", @SW_HIDE)
-            RunWait(@ComSpec & ' /c schtasks.exe /delete /tn "' & $g_aApps[$i][5] & '" /f', "", @SW_HIDE)
-            Local $sStartup = @AppDataDir & "\Microsoft\Windows\Start Menu\Programs\Startup"
-            FileDelete($sStartup & "\" & $g_aApps[$i][6])
-        EndIf
-    Next
-    If $iExceptApp = -1 Then _Auto_Save(0, -1)
+;===============================================================================
+; Elevation helper - re-launches self with admin rights for specific operation
+;===============================================================================
+Func _RequireElevation($sCmd, $iAppIndex)
+    If IsAdmin() Then Return True
+    
+    Local $sScript = @ScriptFullPath
+    Local $sParams = $sCmd & " " & $iAppIndex
+    Local $iPID = Run('"' & @AutoItExe & '" "' & $sScript & '" ' & $sParams, "", @SW_HIDE)
+    If $iPID = 0 Then
+        MsgBox($MB_ICONERROR, "Service Manager", "Failed to launch elevated process.")
+        Return False
+    EndIf
+    ProcessWaitClose($iPID, 30)
+    Return True
+EndFunc
+
+Func _Elevated_Service_Install($iAppIndex)
+    If Not _RequireElevation($CMD_ELEVATE_SERVICE, $iAppIndex) Then Return False
+    ; The elevated instance will do the actual work and save state
+    Return True
+EndFunc
+
+Func _Elevated_Task_Install($iAppIndex)
+    If Not _RequireElevation($CMD_ELEVATE_TASK, $iAppIndex) Then Return False
+    Return True
+EndFunc
+
+Func _Elevated_RemoveAll($iExceptApp)
+    If Not _RequireElevation($CMD_ELEVATE_REMOVE, $iExceptApp) Then Return False
+    Return True
 EndFunc
 
 ;===============================================================================
-; Autostart methods
+; Autostart methods (elevated versions for Service/Task)
 ;===============================================================================
 Func _Service_Install($i)
+    If Not IsAdmin() Then Return _Elevated_Service_Install($i)
+    
     _Auto_RemoveAll($i)
     Local $sBin = '"' & $g_aApps[$i][1] & '"'
     Local $sName = $g_aApps[$i][4]
     Local $sDisp = "Service Manager - " & $g_aApps[$i][0]
     RunWait(@ComSpec & ' /c sc.exe create "' & $sName & '" binPath= ' & $sBin & ' type= own start= auto error= normal DisplayName= "' & $sDisp & '"', "", @SW_HIDE)
     _Auto_Save(1, $i)
+    Return True
 EndFunc
 
 Func _Task_Install($i)
+    If Not IsAdmin() Then Return _Elevated_Task_Install($i)
+    
     _Auto_RemoveAll($i)
     Local $sXML = '<?xml version="1.0" encoding="UTF-16"?>' & @CRLF & _
         '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">' & @CRLF & _
@@ -181,12 +210,14 @@ Func _Task_Install($i)
     RunWait(@ComSpec & ' /c schtasks.exe /create /tn "' & $g_aApps[$i][5] & '" /xml "' & $sXMLPath & '" /f', "", @SW_HIDE)
     FileDelete($sXMLPath)
     _Auto_Save(2, $i)
+    Return True
 EndFunc
 
 Func _Startup_Install($i)
+    ; Startup shortcuts work without admin (per-user)
     _Auto_RemoveAll($i)
     Local $o = ObjCreate("WScript.Shell")
-    If Not IsObj($o) Then Return
+    If Not IsObj($o) Then Return False
     Local $sStartup = @AppDataDir & "\Microsoft\Windows\Start Menu\Programs\Startup"
     Local $sLnk = $sStartup & "\" & $g_aApps[$i][6]
     Local $sShort = $o.CreateShortcut($sLnk)
@@ -195,6 +226,23 @@ Func _Startup_Install($i)
     $sShort.WindowStyle = 7
     $sShort.Save()
     _Auto_Save(3, $i)
+    Return True
+EndFunc
+
+Func _Auto_RemoveAll($iExceptApp = -1)
+    If Not IsAdmin() Then Return _Elevated_RemoveAll($iExceptApp)
+    
+    For $i = 0 To $APP_COUNT - 1
+        If $i <> $iExceptApp Then
+            RunWait(@ComSpec & ' /c sc.exe stop "' & $g_aApps[$i][4] & '"', "", @SW_HIDE)
+            RunWait(@ComSpec & ' /c sc.exe delete "' & $g_aApps[$i][4] & '"', "", @SW_HIDE)
+            RunWait(@ComSpec & ' /c schtasks.exe /delete /tn "' & $g_aApps[$i][5] & '" /f', "", @SW_HIDE)
+            Local $sStartup = @AppDataDir & "\Microsoft\Windows\Start Menu\Programs\Startup"
+            FileDelete($sStartup & "\" & $g_aApps[$i][6])
+        EndIf
+    Next
+    If $iExceptApp = -1 Then _Auto_Save(0, -1)
+    Return True
 EndFunc
 
 ;===============================================================================
@@ -340,7 +388,7 @@ Func __tray_autoNone()
     Local $i = _Auto_FindAppIndex(@TRAY_MENUID)
     If $i <> -1 Then
         _Auto_RemoveAll($i)
-        _Auto_Save(0, -1)
+        _Tray_RefreshStates()
     EndIf
 EndFunc
 
@@ -472,8 +520,34 @@ Func _Advanced_SelectedIndex()
 EndFunc
 
 ;===============================================================================
+; Command line handling for elevated operations
+;===============================================================================
+Func _HandleCommandLine()
+    If $CmdLine[0] < 2 Then Return False
+    
+    Local $sCmd = $CmdLine[1]
+    Local $iApp = Int($CmdLine[2])
+    
+    Switch $sCmd
+        Case $CMD_ELEVATE_SERVICE
+            _Service_Install($iApp)
+            Return True
+        Case $CMD_ELEVATE_TASK
+            _Task_Install($iApp)
+            Return True
+        Case $CMD_ELEVATE_REMOVE
+            _Auto_RemoveAll($iApp)
+            Return True
+    EndSwitch
+    Return False
+EndFunc
+
+;===============================================================================
 ; Main
 ;===============================================================================
+; Handle elevated command line first (before mutex/tray)
+If _HandleCommandLine() Then Exit
+
 _PID_Load()
 
 Local $aAuto = _Auto_Load()
