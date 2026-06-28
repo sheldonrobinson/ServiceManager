@@ -398,18 +398,21 @@ Func __tray_start()
     For $i = 0 To $APP_COUNT - 1
         If @TRAY_ID = $g_hMI_Start[$i] Then _StartApp($i)
     Next
+    _Tray_RefreshStates()
 EndFunc
 
 Func __tray_stop()
     For $i = 0 To $APP_COUNT - 1
         If @TRAY_ID = $g_hMI_Stop[$i] Then _StopApp($i)
     Next
+    _Tray_RefreshStates()
 EndFunc
 
 Func __tray_ui()
     For $i = 0 To $APP_COUNT - 1
         If @TRAY_ID = $g_hMI_UI[$i] Then _OpenUI($i)
     Next
+    _Tray_RefreshStates()
 EndFunc
 
 Func _ShowAppWindow($i)
@@ -448,24 +451,28 @@ Func __tray_show()
     For $i = 0 To $APP_COUNT - 1
         If @TRAY_ID = $g_hMI_Show[$i] Then _ShowAppWindow($i)
     Next
+    _Tray_RefreshStates()
 EndFunc
 
 Func __tray_hide()
     For $i = 0 To $APP_COUNT - 1
         If @TRAY_ID = $g_hMI_Hide[$i] Then _HideAppWindow($i)
     Next
+    _Tray_RefreshStates()
 EndFunc
 
 Func __tray_showAll()
     For $i = 0 To $APP_COUNT - 1
         _ShowAppWindow($i)
     Next
+    _Tray_RefreshStates()
 EndFunc
 
 Func __tray_hideAll()
     For $i = 0 To $APP_COUNT - 1
         _HideAppWindow($i)
     Next
+    _Tray_RefreshStates()
 EndFunc
 
 Func __tray_autoNone()
@@ -514,12 +521,14 @@ Func __tray_startAll()
     For $i = 0 To $APP_COUNT - 1
         _StartApp($i)
     Next
+    _Tray_RefreshStates()
 EndFunc
 
 Func __tray_stopAll()
     For $i = 0 To $APP_COUNT - 1
         _StopApp($i)
     Next
+    _Tray_RefreshStates()
 EndFunc
 
 Func __tray_exit()
