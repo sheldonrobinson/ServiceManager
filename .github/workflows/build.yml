@@ -29,7 +29,7 @@ jobs:
 
     - name: Verify build
       run: |
-        ls -la ServiceManager.exe
+        Get-ChildItem ServiceManager.exe | Select-Object Name, Length, LastWriteTime
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
