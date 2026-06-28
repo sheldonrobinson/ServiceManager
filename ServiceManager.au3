@@ -47,8 +47,6 @@ Global $g_aPID[$APP_COUNT] = [-1, -1, -1]
 Global $g_sAutoFile = @ScriptDir & "\autostart.dat"
 Global $g_iAutoMode = 0 ; 0=none, 1=service, 2=scheduled, 3=startup
 Global $g_iAutoApp = -1
-Global $g_sAutoStartAllFile = @ScriptDir & "\autostart_on_launch.dat"
-Global $g_iAutoStartOnLaunchMask = 0 ; bitmask: 1=LlamaCPP, 2=AgentGateway, 4=MCPJungle
 
 ; Single instance mutex
 Global $g_hMutex = DllCall("kernel32.dll", "handle", "CreateMutexW", "ptr", 0, "int", 1, "wstr", "Global\ServiceManagerMutex")
@@ -78,6 +76,8 @@ Global $g_hMI_Show[$APP_COUNT]
 Global $g_hMI_Hide[$APP_COUNT]
 Global $g_hMI_ShowAll
 Global $g_hMI_HideAll
+Global $g_hMenuAutoStartAll
+Global $g_aAutoStartAllMI[8]
 Global $g_hMI_AutoStartAll
 
 ; Elevation command line constants
@@ -122,7 +122,7 @@ Func _PID_Save()
 EndFunc
 
 ;===============================================================================
-; Autostart persistence
+; Autostart persistence (per-app: Service / Scheduled Task / Startup Shortcut)
 ;===============================================================================
 Func _Auto_Load()
     If Not FileExists($g_sAutoFile) Then Return SetError(1, 0, 0)
@@ -147,45 +147,6 @@ Func _Auto_Save($iMode, $iApp)
     FileWriteLine($h, "Mode=" & $iMode)
     FileWriteLine($h, "App=" & $iApp)
     FileClose($h)
-EndFunc
-
-;===============================================================================
-; Autostart on ServiceManager start (bitmask: 1=LlamaCPP, 2=AgentGateway, 4=MCPJungle)
-;===============================================================================
-Global $g_iAutoStartOnLaunchMask = 0
-
-Func _AutoStartOnLaunch_Load()
-    Local $sFile = @ScriptDir & "\autostart_on_launch.dat"
-    If Not FileExists($sFile) Then Return
-    Local $h = FileOpen($sFile, $FO_READ)
-    If $h = -1 Then Return
-    Local $s = FileReadLine($h)
-    FileClose($h)
-    $s = StringStripWS($s, $STR_STRIPALL)
-    $g_iAutoStartOnLaunchMask = Int($s)
-EndFunc
-
-Func _AutoStartOnLaunch_Save($iMask)
-    Local $sFile = @ScriptDir & "\autostart_on_launch.dat"
-    Local $h = FileOpen($sFile, $FO_OVERWRITE)
-    If $h = -1 Then Return
-    FileWriteLine($h, $iMask)
-    FileClose($h)
-EndFunc
-
-Func _AutoStartOnLaunch_SetMask($iMask)
-    $g_iAutoStartOnLaunchMask = $iMask
-    _AutoStartOnLaunch_Save($iMask)
-    _Tray_RefreshStates()
-EndFunc
-
-Func _AutoStartOnLaunch_Execute()
-    If $g_iAutoStartOnLaunchMask = 0 Then Return
-    For $i = 0 To $APP_COUNT - 1
-        If BitAND($g_iAutoStartOnLaunchMask, 2^$i) Then
-            _StartApp($i)
-        EndIf
-    Next
 EndFunc
 
 ;===============================================================================
@@ -548,7 +509,7 @@ Func __tray_autoNone()
 EndFunc
 
 ;===============================================================================
-; Autostart on ServiceManager launch (bitmask-based)
+; Autostart on ServiceManager launch (bitmask-based: 1=LlamaCPP, 2=AgentGateway, 4=MCPJungle)
 ;===============================================================================
 Global $g_sAutoStartAllFile = @ScriptDir & "\autostart_all.dat"
 Global $g_iAutoStartAllMask = 0
@@ -708,8 +669,6 @@ EndFunc
 If _HandleCommandLine() Then Exit
 
 _PID_Load()
-
-_AutoStartOnLaunch_Load()
 _AutoStartAll_Load()
 
 Local $aAuto = _Auto_Load()
@@ -719,8 +678,6 @@ If Not @error Then
 EndIf
 
 _Tray_Build()
-
-_AutoStartOnLaunch_Execute()
 _AutoStartAll_Apply()
 
 While 1
