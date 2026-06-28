@@ -47,6 +47,8 @@ Global $g_aPID[$APP_COUNT] = [-1, -1, -1]
 Global $g_sAutoFile = @ScriptDir & "\autostart.dat"
 Global $g_iAutoMode = 0 ; 0=none, 1=service, 2=scheduled, 3=startup
 Global $g_iAutoApp = -1
+Global $g_sAutoStartAllFile = @ScriptDir & "\autostart_on_launch.dat"
+Global $g_iAutoStartOnLaunchMask = 0 ; bitmask: 1=LlamaCPP, 2=AgentGateway, 4=MCPJungle
 
 ; Single instance mutex
 Global $g_hMutex = DllCall("kernel32.dll", "handle", "CreateMutexW", "ptr", 0, "int", 1, "wstr", "Global\ServiceManagerMutex")
@@ -76,6 +78,7 @@ Global $g_hMI_Show[$APP_COUNT]
 Global $g_hMI_Hide[$APP_COUNT]
 Global $g_hMI_ShowAll
 Global $g_hMI_HideAll
+Global $g_hMI_AutoStartAll
 
 ; Elevation command line constants
 Global Const $CMD_ELEVATE_SERVICE = "/elevate_service"
@@ -144,6 +147,45 @@ Func _Auto_Save($iMode, $iApp)
     FileWriteLine($h, "Mode=" & $iMode)
     FileWriteLine($h, "App=" & $iApp)
     FileClose($h)
+EndFunc
+
+;===============================================================================
+; Autostart on ServiceManager start (bitmask: 1=LlamaCPP, 2=AgentGateway, 4=MCPJungle)
+;===============================================================================
+Global $g_iAutoStartOnLaunchMask = 0
+
+Func _AutoStartOnLaunch_Load()
+    Local $sFile = @ScriptDir & "\autostart_on_launch.dat"
+    If Not FileExists($sFile) Then Return
+    Local $h = FileOpen($sFile, $FO_READ)
+    If $h = -1 Then Return
+    Local $s = FileReadLine($h)
+    FileClose($h)
+    $s = StringStripWS($s, $STR_STRIPALL)
+    $g_iAutoStartOnLaunchMask = Int($s)
+EndFunc
+
+Func _AutoStartOnLaunch_Save($iMask)
+    Local $sFile = @ScriptDir & "\autostart_on_launch.dat"
+    Local $h = FileOpen($sFile, $FO_OVERWRITE)
+    If $h = -1 Then Return
+    FileWriteLine($h, $iMask)
+    FileClose($h)
+EndFunc
+
+Func _AutoStartOnLaunch_SetMask($iMask)
+    $g_iAutoStartOnLaunchMask = $iMask
+    _AutoStartOnLaunch_Save($iMask)
+    _Tray_RefreshStates()
+EndFunc
+
+Func _AutoStartOnLaunch_Execute()
+    If $g_iAutoStartOnLaunchMask = 0 Then Return
+    For $i = 0 To $APP_COUNT - 1
+        If BitAND($g_iAutoStartOnLaunchMask, 2^$i) Then
+            _StartApp($i)
+        EndIf
+    Next
 EndFunc
 
 ;===============================================================================
@@ -349,6 +391,28 @@ Func _Tray_Build()
 
     $g_hMenuAuto = TrayCreateMenu("Autostart")
 
+    ; Submenu: Start on ServiceManager Start
+    $g_hMenuAutoStartAll = TrayCreateMenu("Start on ServiceManager Start", $g_hMenuAuto)
+    $g_aAutoStartAllMI[0] = TrayCreateItem("All (LlamaCPP + AgentGateway + MCPJungle)", $g_hMenuAutoStartAll)
+    TrayItemSetOnEvent(-1, "__tray_autoStartAll_0")
+    $g_aAutoStartAllMI[1] = TrayCreateItem("LlamaCPP HTTP Server", $g_hMenuAutoStartAll)
+    TrayItemSetOnEvent(-1, "__tray_autoStartAll_1")
+    $g_aAutoStartAllMI[2] = TrayCreateItem("AgentGateway", $g_hMenuAutoStartAll)
+    TrayItemSetOnEvent(-1, "__tray_autoStartAll_2")
+    $g_aAutoStartAllMI[3] = TrayCreateItem("MCPJungle", $g_hMenuAutoStartAll)
+    TrayItemSetOnEvent(-1, "__tray_autoStartAll_3")
+    $g_aAutoStartAllMI[4] = TrayCreateItem("LlamaCPP HTTP Server + AgentGateway", $g_hMenuAutoStartAll)
+    TrayItemSetOnEvent(-1, "__tray_autoStartAll_4")
+    $g_aAutoStartAllMI[5] = TrayCreateItem("LlamaCPP HTTP Server + MCPJungle", $g_hMenuAutoStartAll)
+    TrayItemSetOnEvent(-1, "__tray_autoStartAll_5")
+    $g_aAutoStartAllMI[6] = TrayCreateItem("AgentGateway + MCPJungle", $g_hMenuAutoStartAll)
+    TrayItemSetOnEvent(-1, "__tray_autoStartAll_6")
+    TrayCreateItem("", $g_hMenuAutoStartAll)
+    $g_aAutoStartAllMI[7] = TrayCreateItem("None", $g_hMenuAutoStartAll)
+    TrayItemSetOnEvent(-1, "__tray_autoStartAll_7")
+
+    TrayCreateItem("", $g_hMenuAuto)
+
     ; Create per-application autostart submenus
     For $i = 0 To $APP_COUNT - 1
         $g_hMenuAutoApp[$i] = TrayCreateMenu($g_aApps[$i][0], $g_hMenuAuto)
@@ -483,6 +547,78 @@ Func __tray_autoNone()
     EndIf
 EndFunc
 
+;===============================================================================
+; Autostart on ServiceManager launch (bitmask-based)
+;===============================================================================
+Global $g_sAutoStartAllFile = @ScriptDir & "\autostart_all.dat"
+Global $g_iAutoStartAllMask = 0
+
+Func _AutoStartAll_Load()
+    If Not FileExists($g_sAutoStartAllFile) Then Return
+    Local $h = FileOpen($g_sAutoStartAllFile, $FO_READ)
+    If $h = -1 Then Return
+    Local $s = FileReadLine($h)
+    FileClose($h)
+    $s = StringStripWS($s, $STR_STRIPALL)
+    If $s <> "" Then $g_iAutoStartAllMask = Int($s)
+EndFunc
+
+Func _AutoStartAll_Save($iMask)
+    $g_iAutoStartAllMask = $iMask
+    Local $h = FileOpen($g_sAutoStartAllFile, $FO_OVERWRITE)
+    If $h = -1 Then Return
+    FileWriteLine($h, $iMask)
+    FileClose($h)
+EndFunc
+
+Func _AutoStartAll_Apply()
+    If $g_iAutoStartAllMask = 0 Then Return
+    ; Bit 0 = LlamaCPP (index 0), Bit 1 = AgentGateway (index 1), Bit 2 = MCPJungle (index 2)
+    If BitAND($g_iAutoStartAllMask, 1) Then _StartApp(0)
+    If BitAND($g_iAutoStartAllMask, 2) Then _StartApp(1)
+    If BitAND($g_iAutoStartAllMask, 4) Then _StartApp(2)
+EndFunc
+
+Func __tray_autoStartAll_0()
+    _AutoStartAll_Save(7) ; 1+2+4 = All
+    _Tray_RefreshStates()
+EndFunc
+
+Func __tray_autoStartAll_1()
+    _AutoStartAll_Save(1) ; LlamaCPP only
+    _Tray_RefreshStates()
+EndFunc
+
+Func __tray_autoStartAll_2()
+    _AutoStartAll_Save(2) ; AgentGateway only
+    _Tray_RefreshStates()
+EndFunc
+
+Func __tray_autoStartAll_3()
+    _AutoStartAll_Save(4) ; MCPJungle only
+    _Tray_RefreshStates()
+EndFunc
+
+Func __tray_autoStartAll_4()
+    _AutoStartAll_Save(3) ; 1+2 = LlamaCPP + AgentGateway
+    _Tray_RefreshStates()
+EndFunc
+
+Func __tray_autoStartAll_5()
+    _AutoStartAll_Save(5) ; 1+4 = LlamaCPP + MCPJungle
+    _Tray_RefreshStates()
+EndFunc
+
+Func __tray_autoStartAll_6()
+    _AutoStartAll_Save(6) ; 2+4 = AgentGateway + MCPJungle
+    _Tray_RefreshStates()
+EndFunc
+
+Func __tray_autoStartAll_7()
+    _AutoStartAll_Save(0) ; None
+    _Tray_RefreshStates()
+EndFunc
+
 Func _Auto_FindAppIndex($id)
     For $i = 0 To $APP_COUNT - 1
         If $id = $g_aAutoMI_Service[$i] Then Return $i
@@ -573,6 +709,9 @@ If _HandleCommandLine() Then Exit
 
 _PID_Load()
 
+_AutoStartOnLaunch_Load()
+_AutoStartAll_Load()
+
 Local $aAuto = _Auto_Load()
 If Not @error Then
     $g_iAutoMode = $aAuto
@@ -580,6 +719,9 @@ If Not @error Then
 EndIf
 
 _Tray_Build()
+
+_AutoStartOnLaunch_Execute()
+_AutoStartAll_Apply()
 
 While 1
     Local $aMsg = TrayGetMsg()
