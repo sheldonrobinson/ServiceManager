@@ -63,6 +63,8 @@ Global $g_hMI_AutoNone
 Global $g_aAutoMI_Service[$APP_COUNT]
 Global $g_aAutoMI_Scheduled[$APP_COUNT]
 Global $g_aAutoMI_Startup[$APP_COUNT]
+Global $g_aAutoMI_None[$APP_COUNT]
+Global $g_hMenuAutoApp[$APP_COUNT]
 Global $g_hMI_Advanced
 Global $g_hMI_Exit
 
@@ -266,17 +268,19 @@ Func _Tray_Build()
     TrayCreateItem("", 0)
 
     $g_hMenuAuto = TrayCreateMenu("Autostart")
-    $g_hMI_AutoNone = TrayCreateItem("No Autostart", $g_hMenuAuto)
-    TrayItemSetOnEvent(-1, "__tray_autoNone")
-    TrayCreateItem("", $g_hMenuAuto)
 
+    ; Create per-application autostart submenus
     For $i = 0 To $APP_COUNT - 1
-        $g_aAutoMI_Service[$i] = TrayCreateItem("Service: " & $g_aApps[$i][0], $g_hMenuAuto)
+        $g_hMenuAutoApp[$i] = TrayCreateMenu($g_aApps[$i][0], $g_hMenuAuto)
+        $g_aAutoMI_Service[$i] = TrayCreateItem("Service", $g_hMenuAutoApp[$i])
         TrayItemSetOnEvent(-1, "__tray_autoService")
-        $g_aAutoMI_Scheduled[$i] = TrayCreateItem("Scheduled: " & $g_aApps[$i][0], $g_hMenuAuto)
+        $g_aAutoMI_Scheduled[$i] = TrayCreateItem("Scheduled Task", $g_hMenuAutoApp[$i])
         TrayItemSetOnEvent(-1, "__tray_autoScheduled")
-        $g_aAutoMI_Startup[$i] = TrayCreateItem("Startup: " & $g_aApps[$i][0], $g_hMenuAuto)
+        $g_aAutoMI_Startup[$i] = TrayCreateItem("Startup Shortcut", $g_hMenuAutoApp[$i])
         TrayItemSetOnEvent(-1, "__tray_autoStartup")
+        TrayCreateItem("", $g_hMenuAutoApp[$i])
+        $g_aAutoMI_None[$i] = TrayCreateItem("None", $g_hMenuAutoApp[$i])
+        TrayItemSetOnEvent(-1, "__tray_autoNone")
     Next
 
     TrayCreateItem("", 0)
@@ -330,8 +334,11 @@ Func __tray_ui()
 EndFunc
 
 Func __tray_autoNone()
-    _Auto_RemoveAll(-1)
-    _Auto_Save(0, -1)
+    Local $i = _Auto_FindAppIndex(@TRAY_MENUID)
+    If $i <> -1 Then
+        _Auto_RemoveAll($i)
+        _Auto_Save(0, -1)
+    EndIf
 EndFunc
 
 Func _Auto_FindAppIndex($id)
@@ -339,6 +346,7 @@ Func _Auto_FindAppIndex($id)
         If $id = $g_aAutoMI_Service[$i] Then Return $i
         If $id = $g_aAutoMI_Scheduled[$i] Then Return $i
         If $id = $g_aAutoMI_Startup[$i] Then Return $i
+        If $id = $g_aAutoMI_None[$i] Then Return $i
     Next
     Return -1
 EndFunc
