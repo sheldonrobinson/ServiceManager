@@ -390,19 +390,19 @@ EndFunc
 ;===============================================================================
 Func __tray_start()
     For $i = 0 To $APP_COUNT - 1
-        If @TRAY_MENUID = $g_hMI_Start[$i] Then _StartApp($i)
+        If @TRAY_ID = $g_hMI_Start[$i] Then _StartApp($i)
     Next
 EndFunc
 
 Func __tray_stop()
     For $i = 0 To $APP_COUNT - 1
-        If @TRAY_MENUID = $g_hMI_Stop[$i] Then _StopApp($i)
+        If @TRAY_ID = $g_hMI_Stop[$i] Then _StopApp($i)
     Next
 EndFunc
 
 Func __tray_ui()
     For $i = 0 To $APP_COUNT - 1
-        If @TRAY_MENUID = $g_hMI_UI[$i] Then _OpenUI($i)
+        If @TRAY_ID = $g_hMI_UI[$i] Then _OpenUI($i)
     Next
 EndFunc
 
@@ -440,13 +440,13 @@ EndFunc
 
 Func __tray_show()
     For $i = 0 To $APP_COUNT - 1
-        If @TRAY_MENUID = $g_hMI_Show[$i] Then _ShowAppWindow($i)
+        If @TRAY_ID = $g_hMI_Show[$i] Then _ShowAppWindow($i)
     Next
 EndFunc
 
 Func __tray_hide()
     For $i = 0 To $APP_COUNT - 1
-        If @TRAY_MENUID = $g_hMI_Hide[$i] Then _HideAppWindow($i)
+        If @TRAY_ID = $g_hMI_Hide[$i] Then _HideAppWindow($i)
     Next
 EndFunc
 
@@ -463,7 +463,7 @@ Func __tray_hideAll()
 EndFunc
 
 Func __tray_autoNone()
-    Local $i = _Auto_FindAppIndex(@TRAY_MENUID)
+    Local $i = _Auto_FindAppIndex(@TRAY_ID)
     If $i <> -1 Then
         _Auto_RemoveAll($i, False) ; Per-app "None": clear only this app
         _Tray_RefreshStates()
@@ -481,7 +481,7 @@ Func _Auto_FindAppIndex($id)
 EndFunc
 
 Func __tray_autoService()
-    Local $i = _Auto_FindAppIndex(@TRAY_MENUID)
+    Local $i = _Auto_FindAppIndex(@TRAY_ID)
     If $i <> -1 Then
         _Service_Install($i)
         _Tray_RefreshStates()
@@ -489,7 +489,7 @@ Func __tray_autoService()
 EndFunc
 
 Func __tray_autoScheduled()
-    Local $i = _Auto_FindAppIndex(@TRAY_MENUID)
+    Local $i = _Auto_FindAppIndex(@TRAY_ID)
     If $i <> -1 Then
         _Task_Install($i)
         _Tray_RefreshStates()
@@ -497,7 +497,7 @@ Func __tray_autoScheduled()
 EndFunc
 
 Func __tray_autoStartup()
-    Local $i = _Auto_FindAppIndex(@TRAY_MENUID)
+    Local $i = _Auto_FindAppIndex(@TRAY_ID)
     If $i <> -1 Then
         _Startup_Install($i)
         _Tray_RefreshStates()
