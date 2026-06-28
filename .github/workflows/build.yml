@@ -19,15 +19,14 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Setup AutoIt
-      uses: dannyhawkins/autoit-github-action@v1
-      with:
-        version: '3.3.16.1'
+    - name: Install AutoIt via Chocolatey
+      run: |
+        choco install autoit -y --version 3.3.16.1
 
     - name: Build ServiceManager.exe
       run: |
         cd ServiceManager
-        Aut2exe.exe /in ServiceManager.au3 /out ServiceManager.exe /x64
+        "C:\Program Files (x86)\AutoIt3\Aut2exe\Aut2exe.exe" /in ServiceManager.au3 /out ServiceManager.exe /x64
 
     - name: Verify build
       run: |
