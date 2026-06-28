@@ -34,7 +34,7 @@ Global $g_aApps[$APP_COUNT][8] = [ _
       "AgentGateway", "AgentGateway_Task", "AgentGateway.lnk" ], _
     [ "MCPJungle", _
       @LocalAppDataDir & "\Programs\Konnek\mcpjungle\mcpjungle.exe", _
-      "start --port 8080 --sqlite-db-path " & @AppDataDir & "\Konnek\mcpjungle\mcpjungle.db", _
+      "start --port 8080 --sqlite-db-path " & EnvGet("APPDATA") & "\Konnek\mcpjungle\mcpjungle.db", _
       "http://localhost:8080/", "8080", _
       "MCPJungle", "MCPJungle_Task", "MCPJungle.lnk" ] _
 ]
