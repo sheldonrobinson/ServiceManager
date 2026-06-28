@@ -69,6 +69,10 @@ Global $g_aAutoMI_None[$APP_COUNT]
 Global $g_hMI_Exit
 Global $g_hMI_StartAll
 Global $g_hMI_StopAll
+Global $g_hMI_Show[$APP_COUNT]
+Global $g_hMI_Hide[$APP_COUNT]
+Global $g_hMI_ShowAll
+Global $g_hMI_HideAll
 
 ; Elevation command line constants
 Global Const $CMD_ELEVATE_SERVICE = "/elevate_service"
@@ -314,6 +318,10 @@ Func _Tray_Build()
     TrayItemSetOnEvent(-1, "__tray_startAll")
     $g_hMI_StopAll = TrayCreateItem("Stop All")
     TrayItemSetOnEvent(-1, "__tray_stopAll")
+    $g_hMI_ShowAll = TrayCreateItem("Show All")
+    TrayItemSetOnEvent(-1, "__tray_showAll")
+    $g_hMI_HideAll = TrayCreateItem("Hide All")
+    TrayItemSetOnEvent(-1, "__tray_hideAll")
     TrayCreateItem("", 0)
 
     For $i = 0 To $APP_COUNT - 1
@@ -324,6 +332,11 @@ Func _Tray_Build()
         TrayItemSetOnEvent(-1, "__tray_stop")
         $g_hMI_UI[$i] = TrayCreateItem("UI", $g_hMenuApp[$i])
         TrayItemSetOnEvent(-1, "__tray_ui")
+        TrayCreateItem("", $g_hMenuApp[$i])
+        $g_hMI_Show[$i] = TrayCreateItem("Show", $g_hMenuApp[$i])
+        TrayItemSetOnEvent(-1, "__tray_show")
+        $g_hMI_Hide[$i] = TrayCreateItem("Hide", $g_hMenuApp[$i])
+        TrayItemSetOnEvent(-1, "__tray_hide")
     Next
 
     TrayCreateItem("", 0)
@@ -367,6 +380,8 @@ Func _Tray_RefreshStates()
         TrayItemSetState($g_hMI_Start[$i], $iStartState)
         TrayItemSetState($g_hMI_Stop[$i], $iStopState)
         TrayItemSetState($g_hMI_UI[$i], $iUIState)
+        TrayItemSetState($g_hMI_Show[$i], $iUIState)
+        TrayItemSetState($g_hMI_Hide[$i], $iUIState)
     Next
 EndFunc
 
@@ -388,6 +403,62 @@ EndFunc
 Func __tray_ui()
     For $i = 0 To $APP_COUNT - 1
         If @TRAY_MENUID = $g_hMI_UI[$i] Then _OpenUI($i)
+    Next
+EndFunc
+
+Func _ShowAppWindow($i)
+    Local $aWins = _WinListByPID($g_aPID[$i])
+    If UBound($aWins) > 0 Then
+        For $j = 0 To UBound($aWins) - 1
+            WinSetState($aWins[$j][1], "", @SW_SHOW)
+        Next
+    EndIf
+EndFunc
+
+Func _HideAppWindow($i)
+    Local $aWins = _WinListByPID($g_aPID[$i])
+    If UBound($aWins) > 0 Then
+        For $j = 0 To UBound($aWins) - 1
+            WinSetState($aWins[$j][1], "", @SW_HIDE)
+        Next
+    EndIf
+EndFunc
+
+Func _WinListByPID($iPID)
+    Local $aWins = WinList()
+    Local $aResult[0][2]
+    For $i = 1 To $aWins[0][0]
+        Local $iWinPID = WinGetProcess($aWins[$i][1])
+        If $iWinPID = $iPID And $aWins[$i][0] <> "" Then
+            ReDim $aResult[UBound($aResult) + 1][2]
+            $aResult[UBound($aResult) - 1][0] = $aWins[$i][0]
+            $aResult[UBound($aResult) - 1][1] = $aWins[$i][1]
+        EndIf
+    Next
+    Return $aResult
+EndFunc
+
+Func __tray_show()
+    For $i = 0 To $APP_COUNT - 1
+        If @TRAY_MENUID = $g_hMI_Show[$i] Then _ShowAppWindow($i)
+    Next
+EndFunc
+
+Func __tray_hide()
+    For $i = 0 To $APP_COUNT - 1
+        If @TRAY_MENUID = $g_hMI_Hide[$i] Then _HideAppWindow($i)
+    Next
+EndFunc
+
+Func __tray_showAll()
+    For $i = 0 To $APP_COUNT - 1
+        _ShowAppWindow($i)
+    Next
+EndFunc
+
+Func __tray_hideAll()
+    For $i = 0 To $APP_COUNT - 1
+        _HideAppWindow($i)
     Next
 EndFunc
 
