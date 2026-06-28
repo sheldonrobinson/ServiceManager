@@ -14,6 +14,9 @@
 
 #RequireAdmin
 
+; Disable default "Script Paused" and "Exit" tray items
+Opt("TrayMenuMode", 3)
+
 ;===============================================================================
 ; Constants and configuration
 ;===============================================================================
