@@ -22,6 +22,9 @@ Opt("TrayOnEventMode", 1)
 ; Enable GUI event mode for GUICtrlSetOnEvent handlers
 Opt("GUIOnEventMode", 1)
 
+; Require all variables to be declared (catches typos at compile time)
+Opt("MustDeclareVars", 1)
+
 ;===============================================================================
 ; Constants and configuration
 ;===============================================================================
@@ -67,7 +70,6 @@ Global $g_hMI_Start[$APP_COUNT]
 Global $g_hMI_Stop[$APP_COUNT]
 Global $g_hMI_UI[$APP_COUNT]
 Global $g_hMenuAuto
-Global $g_hMI_AutoNone
 Global $g_aAutoMI_Service[$APP_COUNT]
 Global $g_aAutoMI_Scheduled[$APP_COUNT]
 Global $g_aAutoMI_Startup[$APP_COUNT]
@@ -155,11 +157,11 @@ EndFunc
 ;===============================================================================
 ; Elevation helper - re-launches self with admin rights for specific operation
 ;===============================================================================
-Func _RequireElevation($sCmd, $iAppIndex)
+Func _RequireElevation($sCmd, $iAppIndex, $bExclude = False)
     If IsAdmin() Then Return True
     
     Local $sScript = @ScriptFullPath
-    Local $sParams = $sCmd & " " & $iAppIndex
+    Local $sParams = $sCmd & " " & $iAppIndex & " " & ($bExclude ? "1" : "0")
     Local $iPID = Run('"' & @AutoItExe & '" "' & $sScript & '" ' & $sParams, "", @SW_HIDE)
     If $iPID = 0 Then
         MsgBox($MB_ICONERROR, "Service Manager", "Failed to launch elevated process.")
@@ -170,18 +172,17 @@ Func _RequireElevation($sCmd, $iAppIndex)
 EndFunc
 
 Func _Elevated_Service_Install($iAppIndex)
-    If Not _RequireElevation($CMD_ELEVATE_SERVICE, $iAppIndex) Then Return False
-    ; The elevated instance will do the actual work and save state
+    If Not _RequireElevation($CMD_ELEVATE_SERVICE, $iAppIndex, True) Then Return False
     Return True
 EndFunc
 
 Func _Elevated_Task_Install($iAppIndex)
-    If Not _RequireElevation($CMD_ELEVATE_TASK, $iAppIndex) Then Return False
+    If Not _RequireElevation($CMD_ELEVATE_TASK, $iAppIndex, True) Then Return False
     Return True
 EndFunc
 
-Func _Elevated_RemoveAll($iExceptApp)
-    If Not _RequireElevation($CMD_ELEVATE_REMOVE, $iExceptApp) Then Return False
+Func _Elevated_RemoveAll($iAppIndex, $bExclude = False)
+    If Not _RequireElevation($CMD_ELEVATE_REMOVE, $iAppIndex, $bExclude) Then Return False
     Return True
 EndFunc
 
@@ -191,7 +192,7 @@ EndFunc
 Func _Service_Install($i)
     If Not IsAdmin() Then Return _Elevated_Service_Install($i)
     
-    _Auto_RemoveAll($i)
+    _Auto_RemoveAll($i, True) ; Mutual exclusion: clear all EXCEPT this app
     Local $sBin = '"' & $g_aApps[$i][1] & '"'
     Local $sName = $g_aApps[$i][4]
     Local $sDisp = "Service Manager - " & $g_aApps[$i][0]
@@ -203,7 +204,7 @@ EndFunc
 Func _Task_Install($i)
     If Not IsAdmin() Then Return _Elevated_Task_Install($i)
     
-    _Auto_RemoveAll($i)
+    _Auto_RemoveAll($i, True) ; Mutual exclusion: clear all EXCEPT this app
     Local $sXML = '<?xml version="1.0" encoding="UTF-16"?>' & @CRLF & _
         '<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">' & @CRLF & _
         ' <Triggers><LogonTrigger><Enabled>true</Enabled></LogonTrigger></Triggers>' & @CRLF & _
@@ -223,7 +224,7 @@ EndFunc
 
 Func _Startup_Install($i)
     ; Startup shortcuts work without admin (per-user)
-    _Auto_RemoveAll($i)
+    _Auto_RemoveAll($i, True) ; Mutual exclusion: clear all EXCEPT this app
     Local $o = ObjCreate("WScript.Shell")
     If Not IsObj($o) Then Return False
     Local $sStartup = @AppDataDir & "\Microsoft\Windows\Start Menu\Programs\Startup"
@@ -237,11 +238,20 @@ Func _Startup_Install($i)
     Return True
 EndFunc
 
-Func _Auto_RemoveAll($iExceptApp = -1)
-    If Not IsAdmin() Then Return _Elevated_RemoveAll($iExceptApp)
+Func _Auto_RemoveAll($iAppIndex = -1, $bExclude = False)
+    If Not IsAdmin() Then Return _Elevated_RemoveAll($iAppIndex, $bExclude)
     
     For $i = 0 To $APP_COUNT - 1
-        If $i <> $iExceptApp Then
+        Local $bShouldRemove = False
+        If $iAppIndex = -1 Then
+            $bShouldRemove = True ; Clear all
+        ElseIf $bExclude Then
+            $bShouldRemove = ($i <> $iAppIndex) ; Clear all EXCEPT this app
+        Else
+            $bShouldRemove = ($i = $iAppIndex) ; Clear only this app
+        EndIf
+        
+        If $bShouldRemove Then
             RunWait(@ComSpec & ' /c sc.exe stop "' & $g_aApps[$i][4] & '"', "", @SW_HIDE)
             RunWait(@ComSpec & ' /c sc.exe delete "' & $g_aApps[$i][4] & '"', "", @SW_HIDE)
             RunWait(@ComSpec & ' /c schtasks.exe /delete /tn "' & $g_aApps[$i][5] & '" /f', "", @SW_HIDE)
@@ -249,7 +259,7 @@ Func _Auto_RemoveAll($iExceptApp = -1)
             FileDelete($sStartup & "\" & $g_aApps[$i][6])
         EndIf
     Next
-    If $iExceptApp = -1 Then _Auto_Save(0, -1)
+    If $iAppIndex = -1 Then _Auto_Save(0, -1)
     Return True
 EndFunc
 
@@ -402,7 +412,7 @@ EndFunc
 Func __tray_autoNone()
     Local $i = _Auto_FindAppIndex(@TRAY_MENUID)
     If $i <> -1 Then
-        _Auto_RemoveAll($i)
+        _Auto_RemoveAll($i, False) ; Per-app "None": clear only this app
         _Tray_RefreshStates()
     EndIf
 EndFunc
@@ -554,6 +564,8 @@ Func _HandleCommandLine()
     
     Local $sCmd = $CmdLine[1]
     Local $iApp = Int($CmdLine[2])
+    Local $bExclude = False
+    If $CmdLine[0] >= 3 Then $bExclude = ($CmdLine[3] = "1")
     
     Switch $sCmd
         Case $CMD_ELEVATE_SERVICE
@@ -563,7 +575,7 @@ Func _HandleCommandLine()
             _Task_Install($iApp)
             Return True
         Case $CMD_ELEVATE_REMOVE
-            _Auto_RemoveAll($iApp)
+            _Auto_RemoveAll($iApp, $bExclude)
             Return True
     EndSwitch
     Return False
