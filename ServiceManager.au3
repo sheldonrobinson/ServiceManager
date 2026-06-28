@@ -4,13 +4,7 @@
 
 ;--- Standard includes ---
 #include <TrayConstants.au3>
-#include <GuiConstants.au3>
-#include <WindowsConstants.au3>
-#include <StaticConstants.au3>
-#include <ButtonConstants.au3>
-#include <ListViewConstants.au3>
 #include <File.au3>
-#include <GuiListView.au3>
 #include <AutoItConstants.au3>
 
 ; Disable default "Script Paused" and "Exit" tray items
@@ -18,9 +12,6 @@ Opt("TrayMenuMode", 3)
 
 ; Enable tray event mode for TrayItemSetOnEvent handlers
 Opt("TrayOnEventMode", 1)
-
-; Enable GUI event mode for GUICtrlSetOnEvent handlers
-Opt("GUIOnEventMode", 1)
 
 ; Require all variables to be declared (catches typos at compile time)
 Opt("MustDeclareVars", 1)
@@ -70,20 +61,14 @@ Global $g_hMI_Start[$APP_COUNT]
 Global $g_hMI_Stop[$APP_COUNT]
 Global $g_hMI_UI[$APP_COUNT]
 Global $g_hMenuAuto
+Global $g_hMenuAutoApp[$APP_COUNT]
 Global $g_aAutoMI_Service[$APP_COUNT]
 Global $g_aAutoMI_Scheduled[$APP_COUNT]
 Global $g_aAutoMI_Startup[$APP_COUNT]
 Global $g_aAutoMI_None[$APP_COUNT]
-Global $g_hMenuAutoApp[$APP_COUNT]
-Global $g_hMI_Advanced
 Global $g_hMI_Exit
 Global $g_hMI_StartAll
 Global $g_hMI_StopAll
-
-; Advanced window
-Global $g_hWndAdv = -1
-Global $g_hLV = -1
-Global $g_bAdvOpen = False
 
 ; Elevation command line constants
 Global Const $CMD_ELEVATE_SERVICE = "/elevate_service"
@@ -360,9 +345,6 @@ Func _Tray_Build()
     Next
 
     TrayCreateItem("", 0)
-    $g_hMI_Advanced = TrayCreateItem("Advanced Control Panel")
-    TrayItemSetOnEvent(-1, "__tray_advanced")
-    TrayCreateItem("", 0)
     $g_hMI_Exit = TrayCreateItem("Exit")
     TrayItemSetOnEvent(-1, "__tray_exit")
 
@@ -451,10 +433,6 @@ Func __tray_autoStartup()
     EndIf
 EndFunc
 
-Func __tray_advanced()
-    _Advanced_Toggle()
-EndFunc
-
 Func __tray_startAll()
     For $i = 0 To $APP_COUNT - 1
         _StartApp($i)
@@ -474,86 +452,6 @@ Func __tray_exit()
         Next
         Exit
     EndIf
-EndFunc
-
-;===============================================================================
-; Advanced control panel
-;===============================================================================
-Func _Advanced_Toggle()
-    If $g_hWndAdv = -1 Then
-        _Advanced_Open()
-    Else
-        _Advanced_Close()
-    EndIf
-EndFunc
-
-Func _Advanced_Open()
-    $g_hWndAdv = GUICreate("Service Manager - Advanced Control Panel", 860, 360, @DesktopWidth - 880, @DesktopHeight - 400, BitOR($GUI_WS_MINIMIZEBOX, $GUI_WS_MAXIMIZEBOX, $WS_SIZEBOX))
-    $g_hLV = GUICtrlCreateListView("Status|Service Name|Executable|PID|Web UI", 10, 30, 840, 200, BitOR($LVS_REPORT, $LVS_SINGLESEL, $LVS_NOSORTHEADER, $WS_VSCROLL, $WS_HSCROLL), BitOR($LVS_EX_FULLROWSELECT, $LVS_EX_GRIDLINES))
-    _GUICtrlListView_SetColumnWidth($g_hLV, 0, 65)
-    _GUICtrlListView_SetColumnWidth($g_hLV, 1, 170)
-    _GUICtrlListView_SetColumnWidth($g_hLV, 2, 270)
-    _GUICtrlListView_SetColumnWidth($g_hLV, 3, 60)
-    _GUICtrlListView_SetColumnWidth($g_hLV, 4, 130)
-    Local $idStart = GUICtrlCreateButton("Start", 10, 240, 75, 28)
-    GUICtrlSetOnEvent(-1, "__adv_start")
-    Local $idStop = GUICtrlCreateButton("Stop", 92, 240, 75, 28)
-    GUICtrlSetOnEvent(-1, "__adv_stop")
-    Local $idUI = GUICtrlCreateButton("Open UI", 175, 240, 90, 28)
-    GUICtrlSetOnEvent(-1, "__adv_ui")
-    Local $idRefresh = GUICtrlCreateButton("Refresh", 750, 240, 75, 28)
-    GUICtrlSetOnEvent(-1, "__adv_refresh")
-    GUISetState(@SW_SHOW)
-    $g_bAdvOpen = True
-    _Advanced_Refresh()
-EndFunc
-
-Func _Advanced_Close()
-    If $g_hWndAdv <> -1 Then
-        GUIDelete($g_hWndAdv)
-        $g_hWndAdv = -1
-    EndIf
-    $g_bAdvOpen = False
-EndFunc
-
-Func _Advanced_Refresh()
-    If $g_hWndAdv = -1 Then Return
-    _GUICtrlListView_DeleteAllItems($g_hLV)
-    For $i = 0 To $APP_COUNT - 1
-        Local $bRunning = _IsRunning($i)
-        Local $hItem = _GUICtrlListView_AddItem($g_hLV, $bRunning ? "Running" : "Stopped")
-        _GUICtrlListView_AddSubItem($g_hLV, $hItem, $g_aApps[$i][0], 1)
-        _GUICtrlListView_AddSubItem($g_hLV, $hItem, $g_aApps[$i][1], 2)
-        _GUICtrlListView_AddSubItem($g_hLV, $hItem, $bRunning ? String($g_aPID[$i]) : "-", 3)
-        _GUICtrlListView_AddSubItem($g_hLV, $hItem, $g_aApps[$i][2], 4)
-    Next
-EndFunc
-
-Func __adv_start()
-    Local $idx = _Advanced_SelectedIndex()
-    If $idx = -1 Then Return
-    _StartApp($idx)
-EndFunc
-
-Func __adv_stop()
-    Local $idx = _Advanced_SelectedIndex()
-    If $idx = -1 Then Return
-    _StopApp($idx)
-EndFunc
-
-Func __adv_ui()
-    Local $idx = _Advanced_SelectedIndex()
-    If $idx = -1 Then Return
-    _OpenUI($idx)
-EndFunc
-
-Func __adv_refresh()
-    _Advanced_Refresh()
-EndFunc
-
-Func _Advanced_SelectedIndex()
-    If $g_hLV = -1 Then Return -1
-    Return _GUICtrlListView_GetSelectedIndicies($g_hLV)
 EndFunc
 
 ;===============================================================================
@@ -601,7 +499,6 @@ While 1
     Local $aMsg = TrayGetMsg()
     If IsArray($aMsg) Then
         _Tray_RefreshStates()
-        If $g_bAdvOpen Then _Advanced_Refresh()
     EndIf
     Sleep(50)
 WEnd
