@@ -25,18 +25,17 @@ jobs:
 
     - name: Build ServiceManager.exe
       run: |
-        cd ServiceManager
         & "C:\Program Files (x86)\AutoIt3\Aut2exe\Aut2exe.exe" /in ServiceManager.au3 /out ServiceManager.exe /x64
 
     - name: Verify build
       run: |
-        ls -la ServiceManager/ServiceManager.exe
+        ls -la ServiceManager.exe
 
     - name: Create Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        files: ServiceManager/ServiceManager.exe
+        files: ServiceManager.exe
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -45,5 +44,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: ServiceManager
-        path: ServiceManager/ServiceManager.exe
+        path: ServiceManager.exe
         retention-days: 7
