@@ -72,6 +72,8 @@ Global $g_aAutoMI_None[$APP_COUNT]
 Global $g_hMenuAutoApp[$APP_COUNT]
 Global $g_hMI_Advanced
 Global $g_hMI_Exit
+Global $g_hMI_StartAll
+Global $g_hMI_StopAll
 
 ; Advanced window
 Global $g_hWndAdv = -1
@@ -309,6 +311,13 @@ EndFunc
 ; Tray menu building
 ;===============================================================================
 Func _Tray_Build()
+    ; Global Start All / Stop All at top level
+    $g_hMI_StartAll = TrayCreateItem("Start All")
+    TrayItemSetOnEvent(-1, "__tray_startAll")
+    $g_hMI_StopAll = TrayCreateItem("Stop All")
+    TrayItemSetOnEvent(-1, "__tray_stopAll")
+    TrayCreateItem("", 0)
+
     For $i = 0 To $APP_COUNT - 1
         $g_hMenuApp[$i] = TrayCreateMenu($g_aApps[$i][0])
         $g_hMI_Start[$i] = TrayCreateItem("Start", $g_hMenuApp[$i])
@@ -431,6 +440,18 @@ EndFunc
 
 Func __tray_advanced()
     _Advanced_Toggle()
+EndFunc
+
+Func __tray_startAll()
+    For $i = 0 To $APP_COUNT - 1
+        _StartApp($i)
+    Next
+EndFunc
+
+Func __tray_stopAll()
+    For $i = 0 To $APP_COUNT - 1
+        _StopApp($i)
+    Next
 EndFunc
 
 Func __tray_exit()
