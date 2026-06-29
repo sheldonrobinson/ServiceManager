@@ -1,5 +1,11 @@
 # Service Manager
 
+## Setup
+Quick start install of complete Konnek AI Backend
+```
+   powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/sheldonrobinson/ai-backend/main/install.ps1')"
+```
+
 A system tray application written in AutoIt to manage local AI services:
 
 - **LlaMA.C++ HTTP Server** (port 11434)
@@ -93,6 +99,7 @@ Setting persisted to: `%APPDATA%\Konnek\servicemanager\autostart_all.dat`
   - Windows Service installation
   - Scheduled Task creation
   - Removing Service/Task entries
+
 
 ## License
 
