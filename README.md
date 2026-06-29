@@ -8,8 +8,8 @@ A system tray application written in AutoIt to manage local AI services:
 
 ## Setup
 Quick start install of complete Konnek AI Backend
-```
-   powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/sheldonrobinson/ai-backend/main/install.ps1')"
+```powershell
+Set-ExecutionPolicy Bypass -Scope Process -Force; iex (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/sheldonrobinson/ai-backend/main/install.ps1").Content
 ```
 
 ## Features
