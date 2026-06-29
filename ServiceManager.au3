@@ -21,9 +21,23 @@ Opt("MustDeclareVars", 1)
 ;===============================================================================
 Global Const $APP_COUNT = 3
 
-; Application definitions with registry-based install path detection
-Global $g_aApps[$APP_COUNT][8]
-_InitAppConfig()
+Global $g_aApps[$APP_COUNT][8] = [ _
+    [ "LlaMA.C++ HTTP Server", _
+      @LocalAppDataDir & "\Programs\Konnek\llamacpp\llama-server.exe", _
+      "", _
+      "http://localhost:11434/", "11434", _
+      "LlamaCppHttpServer", "LlamaCppHttpServer_Task", "LlamaCppHttpServer.lnk" ], _
+    [ "AgentGateway", _
+      @LocalAppDataDir & "\Programs\Konnek\agentgateway\agentgateway.exe", _
+      "", _
+      "http://localhost:15000/ui", "15000", _
+      "AgentGateway", "AgentGateway_Task", "AgentGateway.lnk" ], _
+    [ "MCPJungle", _
+      @LocalAppDataDir & "\Programs\Konnek\mcpjungle\mcpjungle.exe", _
+      "start --port 8080 --sqlite-db-path " & EnvGet("APPDATA") & "\Konnek\mcpjungle\mcpjungle.db", _
+      "http://localhost:8080/", "8080", _
+      "MCPJungle", "MCPJungle_Task", "MCPJungle.lnk" ] _
+]
 
 ; PID persistence
 Global $g_sPIDFile = @ScriptDir & "\service_pids.dat"
@@ -70,97 +84,6 @@ Global $g_hMI_AutoStartAll
 Global Const $CMD_ELEVATE_SERVICE = "/elevate_service"
 Global Const $CMD_ELEVATE_TASK    = "/elevate_task"
 Global Const $CMD_ELEVATE_REMOVE  = "/elevate_remove"
-
-;===============================================================================
-; Initialize application configuration with registry-based paths
-;===============================================================================
-Func _InitAppConfig()
-    ; LlamaCPP HTTP Server
-    $g_aApps[0][0] = "LlaMA.C++ HTTP Server"
-    $g_aApps[0][1] = _GetLlamaCppExe()
-    $g_aApps[0][2] = ""
-    $g_aApps[0][3] = "http://localhost:11434/"
-    $g_aApps[0][4] = "11434"
-    $g_aApps[0][5] = "LlamaCppHttpServer"
-    $g_aApps[0][6] = "LlamaCppHttpServer_Task"
-    $g_aApps[0][7] = "LlamaCppHttpServer.lnk"
-
-    ; AgentGateway
-    $g_aApps[1][0] = "AgentGateway"
-    $g_aApps[1][1] = _GetAgentGatewayExe()
-    $g_aApps[1][2] = ""
-    $g_aApps[1][3] = "http://localhost:15000/ui"
-    $g_aApps[1][4] = "15000"
-    $g_aApps[1][5] = "AgentGateway"
-    $g_aApps[1][6] = "AgentGateway_Task"
-    $g_aApps[1][7] = "AgentGateway.lnk"
-
-    ; MCPJungle
-    $g_aApps[2][0] = "MCPJungle"
-    $g_aApps[2][1] = _GetMCPJungleExe()
-    $g_aApps[2][2] = "start --port 8080 --sqlite-db-path " & EnvGet("APPDATA") & "\Konnek\mcpjungle\mcpjungle.db"
-    $g_aApps[2][3] = "http://localhost:8080/"
-    $g_aApps[2][4] = "8080"
-    $g_aApps[2][5] = "MCPJungle"
-    $g_aApps[2][6] = "MCPJungle_Task"
-    $g_aApps[2][7] = "MCPJungle.lnk"
-EndFunc
-
-;===============================================================================
-; Get install path from registry with fallback
-;===============================================================================
-Func _GetInstallPath($sRegKeyHKLM, $sRegKeyHKCU, $sFallbackPath)
-    ; Try HKCU first (user-specific)
-    Local $sPath = RegRead("HKEY_CURRENT_USER\" & $sRegKeyHKCU, "InstallPath")
-    If Not @error And $sPath <> "" And FileExists($sPath) Then
-        Return $sPath
-    EndIf
-
-    ; Try HKLM (machine-wide)
-    $sPath = RegRead("HKEY_LOCAL_MACHINE\" & $sRegKeyHKLM, "InstallPath")
-    If Not @error And $sPath <> "" And FileExists($sPath) Then
-        Return $sPath
-    EndIf
-
-    ; Fallback
-    Return $sFallbackPath
-EndFunc
-
-;===============================================================================
-; Get LlamaCPP executable path
-;===============================================================================
-Func _GetLlamaCppExe()
-    Local $sBasePath = _GetInstallPath(
-        "SOFTWARE\Konnek\llama",
-        "SOFTWARE\Konnek\llama",
-        @LocalAppDataDir & "\Konnek\llama"
-    )
-    Return $sBasePath & "\llama-server.exe"
-EndFunc
-
-;===============================================================================
-; Get AgentGateway executable path
-;===============================================================================
-Func _GetAgentGatewayExe()
-    Local $sBasePath = _GetInstallPath(
-        "SOFTWARE\Konnek\agentgateway",
-        "SOFTWARE\Konnek\agentgateway",
-        @LocalAppDataDir & "\Programs\Konnek\agentgateway"
-    )
-    Return $sBasePath & "\agentgateway.exe"
-EndFunc
-
-;===============================================================================
-; Get MCPJungle executable path
-;===============================================================================
-Func _GetMCPJungleExe()
-    Local $sBasePath = _GetInstallPath(
-        "SOFTWARE\Konnek\mcpjungle",
-        "SOFTWARE\Konnek\mcpjungle",
-        @LocalAppDataDir & "\Programs\Konnek\mcpjungle"
-    )
-    Return $sBasePath & "\mcpjungle.exe"
-EndFunc
 
 ;===============================================================================
 ; PID persistence
@@ -266,7 +189,7 @@ Func _Service_Install($i)
     
     _Auto_RemoveAll($i, True) ; Mutual exclusion: clear all EXCEPT this app
     Local $sBin = '"' & $g_aApps[$i][1] & '"'
-    Local $sName = $g_aApps[$i][5]
+    Local $sName = $g_aApps[$i][4]
     Local $sDisp = "Service Manager - " & $g_aApps[$i][0]
     RunWait(@ComSpec & ' /c sc.exe create "' & $sName & '" binPath= ' & $sBin & ' type= own start= auto error= normal DisplayName= "' & $sDisp & '"', "", @SW_HIDE)
     _Auto_Save(1, $i)
@@ -288,7 +211,7 @@ Func _Task_Install($i)
     Local $h = FileOpen($sXMLPath, $FO_OVERWRITE)
     FileWrite($h, $sXML)
     FileClose($h)
-    RunWait(@ComSpec & ' /c schtasks.exe /create /tn "' & $g_aApps[$i][6] & '" /xml "' & $sXMLPath & '" /f', "", @SW_HIDE)
+    RunWait(@ComSpec & ' /c schtasks.exe /create /tn "' & $g_aApps[$i][5] & '" /xml "' & $sXMLPath & '" /f', "", @SW_HIDE)
     FileDelete($sXMLPath)
     _Auto_Save(2, $i)
     Return True
@@ -300,7 +223,7 @@ Func _Startup_Install($i)
     Local $o = ObjCreate("WScript.Shell")
     If Not IsObj($o) Then Return False
     Local $sStartup = @AppDataDir & "\Microsoft\Windows\Start Menu\Programs\Startup"
-    Local $sLnk = $sStartup & "\" & $g_aApps[$i][7]
+    Local $sLnk = $sStartup & "\" & $g_aApps[$i][6]
     Local $sShort = $o.CreateShortcut($sLnk)
     $sShort.TargetPath = $g_aApps[$i][1]
     $sShort.WorkingDirectory = @ScriptDir
@@ -324,11 +247,11 @@ Func _Auto_RemoveAll($iAppIndex = -1, $bExclude = False)
         EndIf
         
         If $bShouldRemove Then
-            RunWait(@ComSpec & ' /c sc.exe stop "' & $g_aApps[$i][5] & '"', "", @SW_HIDE)
-            RunWait(@ComSpec & ' /c sc.exe delete "' & $g_aApps[$i][5] & '"', "", @SW_HIDE)
-            RunWait(@ComSpec & ' /c schtasks.exe /delete /tn "' & $g_aApps[$i][6] & '" /f', "", @SW_HIDE)
+            RunWait(@ComSpec & ' /c sc.exe stop "' & $g_aApps[$i][4] & '"', "", @SW_HIDE)
+            RunWait(@ComSpec & ' /c sc.exe delete "' & $g_aApps[$i][4] & '"', "", @SW_HIDE)
+            RunWait(@ComSpec & ' /c schtasks.exe /delete /tn "' & $g_aApps[$i][5] & '" /f', "", @SW_HIDE)
             Local $sStartup = @AppDataDir & "\Microsoft\Windows\Start Menu\Programs\Startup"
-            FileDelete($sStartup & "\" & $g_aApps[$i][7])
+            FileDelete($sStartup & "\" & $g_aApps[$i][6])
         EndIf
     Next
     If $iAppIndex = -1 Then _Auto_Save(0, -1)
