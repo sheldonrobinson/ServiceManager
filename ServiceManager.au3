@@ -40,11 +40,11 @@ Global $g_aApps[$APP_COUNT][8] = [ _
 ]
 
 ; PID persistence
-Global $g_sPIDFile = @ScriptDir & "\service_pids.dat"
+Global $g_sPIDFile = @LocalAppDataDir & "\Konnek\servicemanager\service_pids.dat"
 Global $g_aPID[$APP_COUNT] = [-1, -1, -1]
 
 ; Autostart persistence
-Global $g_sAutoFile = @ScriptDir & "\autostart.dat"
+Global $g_sAutoFile = @LocalAppDataDir & "\Konnek\servicemanager\autostart.dat"
 Global $g_iAutoMode = 0 ; 0=none, 1=service, 2=scheduled, 3=startup
 Global $g_iAutoApp = -1
 
