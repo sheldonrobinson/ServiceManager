@@ -1,16 +1,16 @@
 # Service Manager
 
-## Setup
-Quick start install of complete Konnek AI Backend
-```
-   powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/sheldonrobinson/ai-backend/main/install.ps1')"
-```
-
 A system tray application written in AutoIt to manage local AI services:
 
 - **LlaMA.C++ HTTP Server** (port 11434)
 - **AgentGateway** (port 15000)
 - **MCPJungle** (port 8080)
+
+## Setup
+Quick start install of complete Konnek AI Backend
+```
+   powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/sheldonrobinson/ai-backend/main/install.ps1')"
+```
 
 ## Features
 
